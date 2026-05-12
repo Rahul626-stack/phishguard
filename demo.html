@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PhishGuard Live Demo</title>
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; }
+        .browser-chrome { background: #e2e8f0; padding: 12px 20px; display: flex; align-items: center; border-bottom: 1px solid #cbd5e1; }
+        .address-bar { background: white; padding: 8px 15px; border-radius: 20px; width: 70%; color: #334155; border: 1px solid #cbd5e1; font-family: monospace; font-size: 14px;}
+        .ext-container { margin-left: 20px; position: relative; }
+        .ext-icon { width: 34px; height: 34px; background: #0f172a; border-radius: 6px; color: #38bdf8; text-align: center; line-height: 34px; font-weight: bold; cursor: pointer; border: 2px solid transparent;}
+        .ext-icon:hover { border-color: #38bdf8; }
+        .badge { position: absolute; top: -6px; right: -6px; background: #ef4444; color: white; font-size: 11px; padding: 2px 5px; border-radius: 10px; font-weight: bold; display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        
+        .popup-iframe { position: absolute; right: 20px; top: 60px; width: 300px; height: 350px; border: none; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: none; z-index: 100; overflow: hidden; background: #0f172a;}
+        
+        .page-content { padding: 40px; max-width: 600px; margin: 0 auto; text-align: center; }
+        .phishing-site { background: #fee2e2; color: #991b1b; padding: 40px; border-radius: 12px; border: 2px solid #ef4444; margin-top: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);}
+        .btn { background: #ef4444; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; font-weight: bold;}
+    </style>
+</head>
+<body>
+    <div class="browser-chrome">
+        <div style="display:flex; gap: 10px; margin-right: 20px;">
+            <div style="width:12px; height:12px; border-radius:50%; background:#f87171;"></div>
+            <div style="width:12px; height:12px; border-radius:50%; background:#fbbf24;"></div>
+            <div style="width:12px; height:12px; border-radius:50%; background:#34d399;"></div>
+        </div>
+        <div class="address-bar" id="url-bar">http://secure-update-paypal.login-verification.com/auth</div>
+        <div class="ext-container">
+            <div class="ext-icon" id="ext-btn" onclick="togglePopup()">PG</div>
+            <div class="badge" id="badge">!</div>
+        </div>
+    </div>
+    
+    <iframe class="popup-iframe" id="popup-frame" src=""></iframe>
+    
+    <div class="page-content">
+        <h1 style="color: #0369a1; font-size: 32px;">Welcome to P-a-y-P-a-l</h1>
+        <p style="color: #64748b;">Your account has been temporarily restricted.</p>
+        
+        <div class="phishing-site">
+            <h2 style="margin-top:0;">Identity Verification Required</h2>
+            <p>Please enter your credentials to secure your account immediately.</p>
+            <input type="text" placeholder="Card Number" style="width: 80%; padding: 10px; margin-bottom: 15px; border: 1px solid #fca5a5; border-radius: 4px;"><br>
+            <input type="password" placeholder="PIN / CVV" style="width: 80%; padding: 10px; margin-bottom: 20px; border: 1px solid #fca5a5; border-radius: 4px;"><br>
+            <button class="btn">Verify Now</button>
+        </div>
+    </div>
+
+    <script>
+        const urlToScan = "http://secure-update-paypal.login-verification.com/auth";
+        let scanResult = null;
+        
+        // Simulate Background Script running on page load
+        console.log("Sending URL to PhishGuard API...");
+        fetch("http://127.0.0.1:8000/scan", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: urlToScan })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Received Response from API:", data);
+            scanResult = data;
+            // Show badge if high risk
+            if (data.severity === "Critical" || data.severity === "High") {
+                document.getElementById("badge").style.display = "block";
+                document.getElementById("ext-btn").style.borderColor = "#ef4444";
+            }
+        })
+        .catch(err => console.error("API error:", err));
+
+        // Expose data to iframe
+        window.getScanResult = function() {
+            return scanResult;
+        };
+
+        function togglePopup() {
+            const frame = document.getElementById("popup-frame");
+            if (frame.style.display === "block") {
+                frame.style.display = "none";
+            } else {
+                frame.style.display = "block";
+                // Add timestamp to prevent caching
+                frame.src = "extension/popup/popup.html?simulated=true&t=" + Date.now();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PhishGuard</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; width: 300px; margin: 0; padding: 0; background: #0f172a; color: white; }
+        .header { background: #1e293b; padding: 15px; text-align: center; border-bottom: 1px solid #334155; }
+        .header h2 { margin: 0; font-size: 18px; color: #38bdf8; }
+        .content { padding: 20px; }
+        .status { padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; }
+        .safe { background: #064e3b; color: #4ade80; border: 1px solid #059669; }
+        .warning { background: #78350f; color: #fb923c; border: 1px solid #ea580c; }
+        .critical { background: #7f1d1d; color: #f87171; border: 1px solid #ef4444; }
+        .details { background: #1e293b; padding: 10px; border-radius: 5px; font-size: 13px; }
+        .details ul { padding-left: 20px; margin: 5px 0; }
+        .loading { text-align: center; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>PhishGuard</h2>
+    </div>
+    <div class="content" id="content">
+        <div class="loading">Loading analysis...</div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>
