@@ -7,6 +7,64 @@ import requests
 import urllib.parse
 import dns.resolver
 from feature_extractor import extract_features
+import datetime
+from collections import defaultdict
+
+# Global state for dashboard
+dashboard_stats = {
+    "scanned": 0,
+    "blocked": 0,
+    "alerts": 0,
+    "nodes": 3 if os.path.exists(os.path.join(os.path.dirname(__file__), '../ml/phishguard_model.pkl')) else 0,
+    "tld_counts": defaultdict(int),
+    "timeline": [
+        {"time": f"{(datetime.datetime.now() - datetime.timedelta(hours=i)).hour:02d}:00", "detections": 0, "scans": 0} 
+        for i in range(5, -1, -1)
+    ],
+    "recent_scans": []
+}
+
+def update_dashboard_stats(url: str, severity: str, score: int):
+    dashboard_stats["scanned"] += 1
+    is_threat = severity in ["High", "Critical"]
+    
+    if is_threat:
+        dashboard_stats["blocked"] += 1
+    if severity == "Critical":
+        dashboard_stats["alerts"] += 1
+        
+    try:
+        domain = urllib.parse.urlparse(url if url.startswith('http') else 'http://' + url).netloc
+        parts = domain.split('.')
+        if len(parts) > 1:
+            tld = "." + parts[-1]
+            dashboard_stats["tld_counts"][tld] += 1
+    except:
+        pass
+
+    now = datetime.datetime.now()
+    current_hour = f"{now.hour:02d}:00"
+    
+    last_bucket = dashboard_stats["timeline"][-1]
+    if last_bucket["time"] == current_hour:
+        last_bucket["scans"] += 1
+        if is_threat:
+            last_bucket["detections"] += 1
+    else:
+        dashboard_stats["timeline"].pop(0)
+        dashboard_stats["timeline"].append({"time": current_hour, "detections": 1 if is_threat else 0, "scans": 1})
+
+    # Log recent scan
+    dashboard_stats["recent_scans"].insert(0, {
+        "url": url,
+        "severity": severity,
+        "score": score,
+        "time": now.strftime("%H:%M:%S")
+    })
+    # Keep only the last 50 scans
+    if len(dashboard_stats["recent_scans"]) > 50:
+        dashboard_stats["recent_scans"].pop()
+
 
 def check_urlhaus(url: str) -> bool:
     """Queries the open URLhaus API to check if the URL is a known threat."""
@@ -121,9 +179,28 @@ def scan_url(req: URLScanRequest):
     if not reasons:
         reasons.append("No immediate threats detected.")
         
+    update_dashboard_stats(url, severity, final_score)
+        
     return URLScanResponse(
         url=url,
         risk_score=final_score,
         severity=severity,
         reasons=reasons
     )
+
+@app.get("/stats")
+def get_stats():
+    tld_list = [{"name": k, "count": v} for k, v in dashboard_stats["tld_counts"].items()]
+    tld_list = sorted(tld_list, key=lambda x: x["count"], reverse=True)[:5]
+    
+    return {
+        "stats": {
+            "scanned": dashboard_stats["scanned"],
+            "blocked": dashboard_stats["blocked"],
+            "alerts": dashboard_stats["alerts"],
+            "nodes": dashboard_stats["nodes"]
+        },
+        "tldData": tld_list,
+        "timelineData": dashboard_stats["timeline"],
+        "recentScans": dashboard_stats["recent_scans"]
+    }
