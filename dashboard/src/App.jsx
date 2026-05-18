@@ -85,6 +85,42 @@ function App() {
     }
   };
 
+  const exportReport = () => {
+    if (recentScans.length === 0) {
+      alert("No scans available to export yet.");
+      return;
+    }
+
+    const headers = ['Timestamp', 'Scanned URL', 'Risk Score (%)', 'Severity', 'Reasons'];
+    
+    const csvRows = recentScans.map(scan => {
+      const escapeStr = (str) => `"${String(str || '').replace(/"/g, '""')}"`;
+      const reasonsStr = (scan.reasons || []).join('; ');
+      
+      return [
+        escapeStr(scan.time),
+        escapeStr(scan.url),
+        scan.score,
+        escapeStr(scan.severity),
+        escapeStr(reasonsStr)
+      ].join(',');
+    });
+    
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.setAttribute('download', `PhishGuard_Report_${dateStr}.csv`);
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const displayedScans = modalType === 'all' 
     ? recentScans 
     : recentScans.filter(s => s.severity === 'High' || s.severity === 'Critical');
@@ -132,7 +168,7 @@ function App() {
           </div>
         </div>
         <button 
-          onClick={() => alert('Report Exported Successfully!')}
+          onClick={exportReport}
           className="group relative px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 hover:scale-105"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-[#38BDF8] to-[#6366F1] rounded-xl opacity-0 group-hover:opacity-100 blur transition-opacity"></div>
