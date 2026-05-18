@@ -61,6 +61,8 @@ def extract_features(url: str):
     features['Entropy_URL'] = entropy(url)
     
     features['spcharUrl'] = len(re.findall(r'[^a-zA-Z0-9]', url))
+    features['SymbolCount_URL'] = features['spcharUrl']
+    features['pathurlRatio'] = len(path) / urlLen if urlLen > 0 else 0
     
     # CharacterContinuityRate (Longest sequence of letters)
     consecutive_chars = re.findall(r'[a-zA-Z]+', url)
@@ -70,6 +72,8 @@ def extract_features(url: str):
     features['Entropy_Domain'] = entropy(domain)
     features['Domain_LongestWordLength'] = get_longest_word_len(domain)
     features['domainUrlRatio'] = len(domain) / urlLen if urlLen > 0 else 0
+    features['SymbolCount_Domain'] = len(re.findall(r'[^a-zA-Z0-9]', domain))
+    features['NumberRate_Domain'] = sum(c.isdigit() for c in domain) / len(domain) if domain else 0
     
     domain_tokens = [t for t in re.split(r'\.', domain) if t]
     if domain_tokens:
@@ -83,11 +87,13 @@ def extract_features(url: str):
         features['Entropy_DirectoryName'] = entropy(directory)
     
     path_tokens = [t for t in re.split(r'[/]', path) if t]
+    features['path_token_count'] = len(path_tokens)
     if path_tokens:
         features['avgpathtokenlen'] = sum(len(t) for t in path_tokens) / len(path_tokens)
     features['delimeter_path'] = len(re.findall(r'[^a-zA-Z0-9]', path)) if path else -1
     
     if filename:
+        features['fileNameLen'] = len(filename)
         features['Filename_LetterCount'] = sum(c.isalpha() for c in filename)
         features['NumberRate_FileName'] = sum(c.isdigit() for c in filename) / len(filename)
         features['Entropy_Filename'] = entropy(filename)
