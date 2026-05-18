@@ -28,7 +28,7 @@ dashboard_stats = {
     "recent_scans": []
 }
 
-def update_dashboard_stats(url: str, severity: str, score: int):
+def update_dashboard_stats(url: str, severity: str, score: int, reasons: list[str]):
     dashboard_stats["scanned"] += 1
     is_threat = severity in ["High", "Critical"]
     
@@ -63,7 +63,8 @@ def update_dashboard_stats(url: str, severity: str, score: int):
         "url": url,
         "severity": severity,
         "score": score,
-        "time": now.strftime("%H:%M:%S")
+        "time": now.strftime("%H:%M:%S"),
+        "reasons": reasons
     })
     # Keep only the last 50 scans
     if len(dashboard_stats["recent_scans"]) > 50:
@@ -160,11 +161,13 @@ def scan_url(req: URLScanRequest):
         # Strict Whitelisting: Must be a trusted domain with NO query strings and root path
         if domain in trusted_domains:
             if query == '' and (path == '' or path == '/'):
+                whitelist_reasons = ["Verified Trusted Domain (Strict Whitelist)"]
+                update_dashboard_stats(url, "Low", 0, whitelist_reasons)
                 return URLScanResponse(
                     url=url,
                     risk_score=0,
                     severity="Low",
-                    reasons=["Verified Trusted Domain (Strict Whitelist)"]
+                    reasons=whitelist_reasons
                 )
     except:
         pass
@@ -172,21 +175,25 @@ def scan_url(req: URLScanRequest):
     # 0.5 Threat Intelligence (Active Lookup: URLhaus)
     is_blacklisted = check_urlhaus(url)
     if is_blacklisted:
+        urlhaus_reasons = ["Blacklisted by URLhaus Threat Intelligence"]
+        update_dashboard_stats(url, "Critical", 100, urlhaus_reasons)
         return URLScanResponse(
             url=url,
             risk_score=100,
             severity="Critical",
-            reasons=["Blacklisted by URLhaus Threat Intelligence"]
+            reasons=urlhaus_reasons
         )
         
     # 0.6 Threat Intelligence (Active Lookup: VirusTotal)
     is_vt_malicious = check_virustotal(url)
     if is_vt_malicious:
+        vt_reasons = ["Flagged as Malicious by VirusTotal Threat Intelligence"]
+        update_dashboard_stats(url, "Critical", 100, vt_reasons)
         return URLScanResponse(
             url=url,
             risk_score=100,
             severity="Critical",
-            reasons=["Flagged as Malicious by VirusTotal Threat Intelligence"]
+            reasons=vt_reasons
         )
         
     # Active Infrastructure Checks (DNS, WHOIS & Typosquatting)
@@ -301,7 +308,7 @@ def scan_url(req: URLScanRequest):
     if not reasons:
         reasons.append("No immediate threats detected.")
         
-    update_dashboard_stats(url, severity, final_score)
+    update_dashboard_stats(url, severity, final_score, reasons)
         
     return URLScanResponse(
         url=url,
