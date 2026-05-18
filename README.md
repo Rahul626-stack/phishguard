@@ -1,5 +1,9 @@
 # PhishGuard: Real-Time Phishing & Threat Detection Browser Extension
 
+## Guide
+-Add your dataset for model training in the Data folder
+-preequisite python and node.js, also install the requirements.txt before run
+
 ## Executive Summary
 PhishGuard is an advanced, real-time browser security extension designed to intercept, analyze, and neutralize zero-day phishing links, malware distribution endpoints, and brand impersonation attempts directly at the client layer before malicious payloads can execute. Backed by a high-performance FastAPI orchestration engine and an enterprise Security Operations Center (SOC) dashboard, PhishGuard unifies live network forensics, threat intelligence feed aggregation, advanced typosquatting detection, and a customized multi-class Machine Learning classification engine to deliver decisive risk verdicts with sub-100ms processing latency.
 
@@ -134,7 +138,7 @@ pip install -r requirements.txt
 # Run the FastAPI Server
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
-*The API documentation interactive swagger interface will be accessible at `http://localhost:8000/docs`.*
+*The API documentation interactive swagger interface will be accessible at `http://localhost:8000/docs`.*(If you run the extension locally)
 
 ### 3.2 SOC Dashboard Setup
 Requires Node.js 18+.
