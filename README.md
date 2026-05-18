@@ -1,7 +1,7 @@
 # PhishGuard: Real-Time Phishing & Threat Detection Browser Extension
 
 ## Guide
-- Add the model training dataset to Data folder, Dataset link: 'https://www.kaggle.com/datasets/sarrazer/url-dataset-iscx-url2016'
+- Add the model training dataset to Data folder, Dataset used: 'https://www.kaggle.com/datasets/sarrazer/url-dataset-iscx-url2016'
 - prerequisite node.js and python 3.10+, also install the dependencies from requiremnets.txt 
 
 ## Executive Summary
