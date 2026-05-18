@@ -5,7 +5,11 @@ import joblib
 import os
 import requests
 import urllib.parse
+import base64
 import dns.resolver
+import whois
+import difflib
+from tranco import Tranco
 from feature_extractor import extract_features
 import datetime
 from collections import defaultdict
@@ -79,6 +83,26 @@ def check_urlhaus(url: str) -> bool:
         pass
     return False
 
+def check_virustotal(url: str) -> bool:
+    """Queries the VirusTotal API using the provided API key."""
+    vt_api_key = "405e209d35e1568aea1d68aeda7d4d1c72854233a79eec51d60d02fa3f2e9cb6"
+    try:
+        url_id = base64.urlsafe_b64encode(url.encode()).decode().strip("=")
+        headers = {
+            "accept": "application/json",
+            "x-apikey": vt_api_key
+        }
+        response = requests.get(f'https://www.virustotal.com/api/v3/urls/{url_id}', headers=headers, timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            stats = data.get('data', {}).get('attributes', {}).get('last_analysis_stats', {})
+            malicious_count = stats.get('malicious', 0)
+            if malicious_count >= 2:
+                return True
+    except:
+        pass
+    return False
+
 app = FastAPI(title="PhishGuard API")
 
 app.add_middleware(
@@ -95,6 +119,18 @@ try:
 except Exception as e:
     model = None
     print(f"Failed to load model: {e}")
+
+# Tranco Top 1M Initialization
+try:
+    print("Initializing Tranco list (This may take a moment on first run)...")
+    t = Tranco(cache=True, cache_dir=os.path.join(os.path.dirname(__file__), '.tranco'))
+    latest_list = t.list()
+    # Cache the top 10k domains as a set for O(1) ultra-fast lookup
+    trusted_domains = set(latest_list.top(10000))
+    print(f"Loaded {len(trusted_domains)} trusted domains from Tranco.")
+except Exception as e:
+    print(f"Failed to load Tranco list: {e}")
+    trusted_domains = set(['google.com', 'youtube.com', 'facebook.com', 'github.com', 'microsoft.com', 'apple.com', 'linkedin.com'])
 
 class URLScanRequest(BaseModel):
     url: str
@@ -114,22 +150,26 @@ def scan_url(req: URLScanRequest):
     url = req.url
     reasons = []
     
-    # 0. Quick Whitelist for common trusted domains
-    trusted_domains = ['google.com', 'youtube.com', 'facebook.com', 'github.com', 'microsoft.com', 'apple.com', 'linkedin.com']
+    # 0. Quick Whitelist for Tranco top trusted domains
     try:
-        domain = urllib.parse.urlparse(url if url.startswith('http') else 'http://' + url).netloc
-        domain = domain.replace('www.', '')
+        parsed_url = urllib.parse.urlparse(url if url.startswith('http') else 'http://' + url)
+        domain = parsed_url.netloc.replace('www.', '')
+        path = parsed_url.path
+        query = parsed_url.query
+        
+        # Strict Whitelisting: Must be a trusted domain with NO query strings and root path
         if domain in trusted_domains:
-            return URLScanResponse(
-                url=url,
-                risk_score=0,
-                severity="Low",
-                reasons=["Verified Trusted Domain (Whitelist)"]
-            )
+            if query == '' and (path == '' or path == '/'):
+                return URLScanResponse(
+                    url=url,
+                    risk_score=0,
+                    severity="Low",
+                    reasons=["Verified Trusted Domain (Strict Whitelist)"]
+                )
     except:
         pass
         
-    # 0.5 Threat Intelligence (Active Lookup)
+    # 0.5 Threat Intelligence (Active Lookup: URLhaus)
     is_blacklisted = check_urlhaus(url)
     if is_blacklisted:
         return URLScanResponse(
@@ -139,30 +179,112 @@ def scan_url(req: URLScanRequest):
             reasons=["Blacklisted by URLhaus Threat Intelligence"]
         )
         
-    # 1. Feature Extraction
-    df_features = extract_features(url)
+    # 0.6 Threat Intelligence (Active Lookup: VirusTotal)
+    is_vt_malicious = check_virustotal(url)
+    if is_vt_malicious:
+        return URLScanResponse(
+            url=url,
+            risk_score=100,
+            severity="Critical",
+            reasons=["Flagged as Malicious by VirusTotal Threat Intelligence"]
+        )
+        
+    # Active Infrastructure Checks (DNS, WHOIS & Typosquatting)
+    active_reasons = []
+    heuristic_penalty = 0
     
-    # 2. ML Prediction
+    try:
+        parsed_url = urllib.parse.urlparse(url if url.startswith('http') else 'http://' + url)
+        domain = parsed_url.netloc
+        
+        # 1. Brand Spoofing & Typosquatting Detection (Full URL)
+        import re
+        targeted_brands = ['google', 'youtube', 'facebook', 'github', 'microsoft', 'apple', 'linkedin', 'paypal', 'amazon', 'netflix', 'chase', 'bankofamerica', 'wells', 'instagram', 'twitter']
+        
+        raw_url = url.replace('https://', '').replace('http://', '').replace('www.', '')
+        url_tokens = re.split(r'[\.\/\-\_\?\=\&]', raw_url)
+        
+        for token in url_tokens:
+            token_lower = token.lower()
+            for brand in targeted_brands:
+                if len(token_lower) >= 4:
+                    similarity = difflib.SequenceMatcher(None, token_lower, brand).ratio()
+                    
+                    if token_lower == brand:
+                        # Exact match. Is it the legitimate official domain?
+                        is_legit = domain.endswith(f"{brand}.com") or domain.endswith(f"{brand}.org") or domain.endswith(f"{brand}.net") or domain.endswith(f"{brand}.co.uk") or domain.endswith(f"{brand}.io")
+                        if not is_legit:
+                            active_reasons.append(f"Brand Spoofing: Deceptive use of '{brand}' in URL")
+                            heuristic_penalty += 50
+                    elif similarity >= 0.75:
+                        active_reasons.append(f"Potential Typosquatting: '{token}' deceptively resembles '{brand}'")
+                        heuristic_penalty += 40
+        
+        # 2. DNS Resolution (NXDOMAIN check)
+        try:
+            dns.resolver.resolve(domain, 'A')
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers):
+            active_reasons.append("Domain does not resolve to an IP (NXDOMAIN/Dead)")
+            heuristic_penalty += 50
+            
+        # 2. WHOIS Age Check
+        try:
+            w = whois.whois(domain)
+            creation_date = w.creation_date
+            if type(creation_date) is list:
+                creation_date = creation_date[0]
+            if creation_date:
+                age_days = (datetime.datetime.now() - creation_date).days
+                if age_days < 30:
+                    active_reasons.append(f"Domain is very new (Registered {age_days} days ago)")
+                    heuristic_penalty += 30
+        except:
+            pass # WHOIS failures shouldn't crash the scan
+    except:
+        pass
+
+    # 1. Feature Extraction & ML Prediction
     ml_score = 0
+    ml_success = False
+    
     if model:
-        # Predict probability of class 1 (phishing)
-        proba = model.predict_proba(df_features)[0]
-        ml_score = int(proba[1] * 100)
+        try:
+            df_features = extract_features(url)
+            proba = model.predict_proba(df_features)[0]
+            ml_score = int(proba[1] * 100)
+            ml_success = True
+        except Exception as e:
+            reasons.append(f"ML extraction/prediction failed, falling back to heuristics")
     else:
         reasons.append("ML model unavailable, relying on heuristics.")
+        
+    # If ML failed or unavailable, calculate heuristic fallback score
+    if not ml_success:
         if len(url) > 75:
-            ml_score += 40
+            heuristic_penalty += 40
             reasons.append("Unusually long URL")
         if url.count('.') > 3:
-            ml_score += 30
+            heuristic_penalty += 30
             reasons.append("Multiple subdomains detected")
+        if 'login' in url.lower() or 'verify' in url.lower():
+            heuristic_penalty += 20
+            reasons.append("Suspicious keywords in URL")
             
-    # 3. Basic Heuristics
-    if 'login' in url.lower() or 'verify' in url.lower():
-        ml_score += 20
-        reasons.append("Suspicious keywords in URL")
+        ml_score = min(heuristic_penalty, 100)
+    else:
+        # Decoupled Heuristics: Just add the context string to reasons
+        if 'login' in url.lower() or 'verify' in url.lower():
+            reasons.append("Suspicious keywords in URL")
+            
+    # Combine reasons
+    reasons.extend(active_reasons)
         
     final_score = min(ml_score, 100)
+    
+    # Active checks (Spoofing, NXDOMAIN, WHOIS) are deterministic security flags.
+    # If they triggered a penalty, it must override a "safe" ML prediction.
+    if heuristic_penalty > 0:
+        final_score = max(final_score, min(heuristic_penalty, 100))
     
     if final_score < 40:
         severity = "Low"
@@ -173,7 +295,7 @@ def scan_url(req: URLScanRequest):
     else:
         severity = "Critical"
         
-    if final_score >= 40 and model:
+    if final_score >= 40 and ml_success:
         reasons.append(f"ML Model predicted risk {final_score}%")
         
     if not reasons:
