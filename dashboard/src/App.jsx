@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, Activity, Globe, Download, Zap, ChevronRight, X, ExternalLink } from 'lucide-react';
+import { Shield, AlertTriangle, Activity, Globe, Download, Zap, ChevronRight, X, ExternalLink, Search, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 
 const initialData = [
@@ -27,6 +27,10 @@ function App() {
   const [recentScans, setRecentScans] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState('all');
+  
+  const [scanUrl, setScanUrl] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
   
   const [stats, setStats] = useState({
     scanned: 1248,
@@ -58,6 +62,27 @@ function App() {
   const openModal = (type) => {
     setModalType(type);
     setIsModalOpen(true);
+  };
+
+  const handleScan = async (e) => {
+    e.preventDefault();
+    if (!scanUrl) return;
+    setIsScanning(true);
+    setScanResult(null);
+    try {
+      const res = await fetch('http://127.0.0.1:8000/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: scanUrl })
+      });
+      const data = await res.json();
+      setScanResult(data);
+    } catch (err) {
+      console.error("Failed to scan URL:", err);
+      setScanResult({ error: "Failed to connect to scanner API." });
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const displayedScans = modalType === 'all' 
@@ -119,10 +144,9 @@ function App() {
       </header>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
         {[
           { label: 'Total Scanned', value: stats.scanned.toLocaleString(), icon: Globe, color: 'text-[#38BDF8]', glow: 'shadow-[#38BDF8]/20', action: () => openModal('all') },
-          { label: 'Threats Blocked', value: stats.blocked.toLocaleString(), icon: Shield, color: 'text-[#22C55E]', glow: 'shadow-[#22C55E]/20', action: () => openModal('threats') },
           { label: 'Critical Alerts', value: stats.alerts.toLocaleString(), icon: AlertTriangle, color: 'text-[#F87171]', glow: 'shadow-[#F87171]/20', action: () => openModal('threats') },
           { label: 'Active ML Nodes', value: stats.nodes.toLocaleString(), icon: Activity, color: 'text-[#A78BFA]', glow: 'shadow-[#A78BFA]/20' }
         ].map((stat, i) => (
@@ -154,6 +178,107 @@ function App() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Quick Scanner */}
+      <div className="bg-white/65 backdrop-blur-xl border border-white/40 p-6 md:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden mb-10">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#6366F1]/10 to-[#38BDF8]/10 rounded-full blur-3xl -z-10 translate-x-1/2 -translate-y-1/2"></div>
+        
+        <div className="flex flex-col md:flex-row items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-[#0F172A] flex items-center gap-2">
+              <Search className="w-5 h-5 text-[#6366F1]" />
+              Manual Threat Analysis
+            </h2>
+            <p className="text-[#64748B] text-sm mt-1">Instantly scan any URL against our ML and active intelligence pipeline.</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleScan} className="relative flex items-center mb-4">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Globe className="w-5 h-5 text-[#94A3B8]" />
+          </div>
+          <input 
+            type="text" 
+            value={scanUrl}
+            onChange={(e) => setScanUrl(e.target.value)}
+            placeholder="https://example.com/login" 
+            className="w-full pl-12 pr-32 py-4 bg-white/80 border border-[#E2E8F0] rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#38BDF8]/50 focus:border-[#38BDF8] transition-all shadow-sm text-[#0F172A] placeholder:text-[#94A3B8]"
+            required
+          />
+          <button 
+            type="submit" 
+            disabled={isScanning || !scanUrl}
+            className="absolute right-2 top-2 bottom-2 px-6 bg-[#0F172A] text-white font-medium rounded-xl hover:bg-[#1E293B] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          >
+            {isScanning ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Scanning...</>
+            ) : (
+              'Analyze'
+            )}
+          </button>
+        </form>
+
+        {/* Scan Result Dropdown */}
+        {scanResult && (
+          <div className={`mt-4 p-5 rounded-2xl border backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-300 ${
+            scanResult.error ? 'bg-red-50/50 border-red-200' :
+            scanResult.severity === 'Critical' ? 'bg-[#FEF2F2]/80 border-[#FECACA]' :
+            scanResult.severity === 'High' ? 'bg-[#FFFBEB]/80 border-[#FDE68A]' :
+            scanResult.severity === 'Medium' ? 'bg-[#F5F3FF]/80 border-[#DDD6FE]' :
+            'bg-[#F0FDF4]/80 border-[#BBF7D0]'
+          }`}>
+            {scanResult.error ? (
+              <p className="text-[#EF4444] font-medium flex items-center gap-2"><AlertTriangle className="w-5 h-5"/> {scanResult.error}</p>
+            ) : (
+              <div className="flex flex-col md:flex-row gap-6 md:items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${
+                    scanResult.severity === 'Critical' ? 'bg-[#F87171] shadow-[0_0_15px_rgba(248,113,113,0.4)]' :
+                    scanResult.severity === 'High' ? 'bg-[#FBBF24] shadow-[0_0_15px_rgba(251,191,36,0.4)]' :
+                    scanResult.severity === 'Medium' ? 'bg-[#A78BFA] shadow-[0_0_15px_rgba(167,139,250,0.4)]' :
+                    'bg-[#22C55E] shadow-[0_0_15px_rgba(34,197,94,0.4)]'
+                  }`}>
+                    {scanResult.severity === 'Critical' || scanResult.severity === 'High' ? (
+                      <AlertTriangle className="w-8 h-8 text-white" />
+                    ) : scanResult.severity === 'Medium' ? (
+                      <Shield className="w-8 h-8 text-white" />
+                    ) : (
+                      <CheckCircle className="w-8 h-8 text-white" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-[#0F172A] mb-1">
+                      {scanResult.risk_score}% Risk Score
+                    </h3>
+                    <p className={`text-sm font-semibold uppercase tracking-wider ${
+                      scanResult.severity === 'Critical' ? 'text-[#EF4444]' :
+                      scanResult.severity === 'High' ? 'text-[#D97706]' :
+                      scanResult.severity === 'Medium' ? 'text-[#7C3AED]' :
+                      'text-[#16A34A]'
+                    }`}>
+                      {scanResult.severity} THREAT
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex-1 bg-white/60 rounded-xl p-4 border border-white/40">
+                  <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-2">Detection Context</p>
+                  <ul className="space-y-1.5">
+                    {scanResult.reasons.map((reason, idx) => (
+                      <li key={idx} className="text-sm text-[#0F172A] flex items-start gap-2">
+                        <span className={`shrink-0 mt-1 w-1.5 h-1.5 rounded-full ${
+                          scanResult.severity === 'Critical' || scanResult.severity === 'High' ? 'bg-[#EF4444]' : 'bg-[#38BDF8]'
+                        }`}></span>
+                        {reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Charts Grid */}
