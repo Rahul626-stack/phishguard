@@ -14,14 +14,23 @@
         .details { background: #1e293b; padding: 10px; border-radius: 5px; font-size: 13px; }
         .details ul { padding-left: 20px; margin: 5px 0; }
         .loading { text-align: center; color: #94a3b8; }
+        
+        /* Modern Button Styles */
+        .btn { display: block; width: 100%; text-align: center; text-decoration: none; padding: 10px 0; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; transition: all 0.2s ease-in-out; border: none; margin-top: 15px; }
+        .btn-primary { background: linear-gradient(135deg, #38bdf8, #6366f1); color: white; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25); }
+        .btn-primary:hover { opacity: 0.95; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(56, 189, 248, 0.4); }
+        .btn-primary:active { transform: translateY(0); }
     </style>
 </head>
 <body>
     <div class="header">
         <h2>PhishGuard</h2>
     </div>
-    <div class="content" id="content">
-        <div class="loading">Loading analysis...</div>
+    <div class="content">
+        <div id="content">
+            <div class="loading">Loading analysis...</div>
+        </div>
+        <button id="open-dashboard" class="btn btn-primary">Open SOC Dashboard</button>
     </div>
     <script src="popup.js"></script>
 </body>

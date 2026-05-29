@@ -3,13 +3,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const contentDiv = document.getElementById('content');
         let statusClass = "safe";
         let statusText = "SAFE (" + data.risk_score + "%)";
-        
+
         if (data.severity === "Critical") { statusClass = "critical"; statusText = "CRITICAL RISK (" + data.risk_score + "%)"; }
         else if (data.severity === "High") { statusClass = "critical"; statusText = "HIGH RISK (" + data.risk_score + "%)"; }
         else if (data.severity === "Medium") { statusClass = "warning"; statusText = "MEDIUM RISK (" + data.risk_score + "%)"; }
-        
+
         let reasonsHtml = data.reasons.map(r => `<li>${r}</li>`).join('');
-        
+
         contentDiv.innerHTML = `
             <div class="status ${statusClass}">${statusText}</div>
             <div class="details">
@@ -31,11 +31,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, 500); // slight delay to show loading state
     } else if (typeof chrome !== 'undefined' && chrome.storage) {
-        chrome.storage.local.get(['currentUrlData'], function(result) {
+        chrome.storage.local.get(['currentUrlData'], function (result) {
             if (result.currentUrlData) {
                 renderData(result.currentUrlData);
             } else {
                 document.getElementById('content').innerHTML = `<div class="loading">No scan data available for this page yet. Try refreshing.</div>`;
+            }
+        });
+    }
+
+    // Handle Open SOC Dashboard click
+    const dashboardBtn = document.getElementById('open-dashboard');
+    if (dashboardBtn) {
+        dashboardBtn.addEventListener('click', () => {
+            const dashboardUrl = 'https://phishguard-z998.vercel.app'; // Replace with your actual Vercel dashboard URL
+            if (typeof chrome !== 'undefined' && chrome.tabs) {
+                chrome.tabs.create({ url: dashboardUrl });
+            } else {
+                window.open(dashboardUrl, '_blank');
             }
         });
     }
