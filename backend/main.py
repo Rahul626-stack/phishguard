@@ -79,7 +79,13 @@ def update_dashboard_stats(url: str, severity: str, score: int, reasons: list[st
 def check_urlhaus(url: str) -> bool:
     """Queries the open URLhaus API to check if the URL is a known threat."""
     try:
-        response = requests.post('https://urlhaus-api.abuse.ch/v1/url/', data={'url': url}, timeout=2)
+        response = requests.post(
+            'https://urlhaus-api.abuse.ch/v1/url/', 
+            data={'url': url}, 
+            headers={'API-Auth': os.getenv('URLHAUS_API_KEY')},
+            timeout=2
+        )
+
         if response.status_code == 200:
             data = response.json()
             # query_status is 'ok' if found in db, 'no_results' if not found
