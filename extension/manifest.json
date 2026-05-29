@@ -3,16 +3,25 @@
   "name": "PhishGuard",
   "version": "1.0",
   "description": "An ML-Powered Phishing URL Detection System",
-  "permissions": ["activeTab", "storage", "webNavigation"],
-  "host_permissions": ["*://*/*"],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
   "background": {
-    "service_worker": "background/background.js",
-    "scripts": ["background/background.js"]
+    "service_worker": "background/background.js"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content/content.js"]
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/content.js"
+      ]
     }
   ],
   "action": {
@@ -22,7 +31,9 @@
     "gecko": {
       "id": "phishguard@rahul626-stack.com",
       "data_collection_permissions": {
-        "required": ["browsingActivity"]
+        "required": [
+          "browsingActivity"
+        ]
       }
     }
   }
