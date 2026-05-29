@@ -1,6 +1,5 @@
 node_modules/
 __pycache__/
-*.pkl
 .env
 .DS_Store
 All.csv
