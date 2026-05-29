@@ -12,6 +12,7 @@ import difflib
 from tranco import Tranco
 from feature_extractor import extract_features
 import datetime
+import tempfile
 from collections import defaultdict
 from dotenv import load_dotenv
 
@@ -133,7 +134,8 @@ fallback_trusted_domains = set(['google.com', 'youtube.com', 'facebook.com', 'gi
 
 try:
     print("Initializing Tranco list (This may take a moment on first run)...")
-    t = Tranco(cache=True, cache_dir=os.path.join(os.path.dirname(__file__), '.tranco'))
+    cache_dir = os.path.join(tempfile.gettempdir(), '.tranco')
+    t = Tranco(cache=True, cache_dir=cache_dir)
     tranco_list = t.list()
     print("Loaded Tranco Top 1M list.")
 except Exception as e:
@@ -170,19 +172,15 @@ def scan_url(req: URLScanRequest):
     # 2. Strict Whitelist against Tranco Top 1 Million
     if domain:
         try:
-            parsed_url = urllib.parse.urlparse(url if url.startswith('http') else 'http://' + url)
-            path = parsed_url.path
-            query = parsed_url.query
-            
             is_whitelisted = False
             if tranco_list and tranco_list.rank(domain) != -1:
                 is_whitelisted = True
             elif not tranco_list and domain in fallback_trusted_domains:
                 is_whitelisted = True
                 
-            # Strict Whitelisting: Must be a trusted domain with NO query strings and root path
-            if is_whitelisted and query == '' and (path == '' or path == '/'):
-                whitelist_reasons = ["Verified Trusted Domain (Tranco Top 1M Strict Whitelist)"]
+            # Tranco verified domains are automatically trusted regardless of path/query (e.g. Figma projects)
+            if is_whitelisted:
+                whitelist_reasons = ["Verified Trusted Domain (Tranco Top 1M Whitelist)"]
                 update_dashboard_stats(url, "Low", 0, whitelist_reasons)
                 return URLScanResponse(
                     url=url,
