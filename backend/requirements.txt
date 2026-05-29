@@ -9,4 +9,6 @@ python-whois
 requests
 matplotlib
 seaborn
-ipykernel   
+ipykernel  
+python-dotenv
+tranco

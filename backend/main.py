@@ -13,6 +13,10 @@ from tranco import Tranco
 from feature_extractor import extract_features
 import datetime
 from collections import defaultdict
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Global state for dashboard
 dashboard_stats = {
@@ -86,7 +90,9 @@ def check_urlhaus(url: str) -> bool:
 
 def check_virustotal(url: str) -> bool:
     """Queries the VirusTotal API using the provided API key."""
-    vt_api_key = "405e209d35e1568aea1d68aeda7d4d1c72854233a79eec51d60d02fa3f2e9cb6"
+    vt_api_key = os.getenv("VT_API_KEY")
+    if not vt_api_key:
+        return False
     try:
         url_id = base64.urlsafe_b64encode(url.encode()).decode().strip("=")
         headers = {
