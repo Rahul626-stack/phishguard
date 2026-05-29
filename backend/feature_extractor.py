@@ -3,10 +3,16 @@ import urllib.parse
 import re
 import math
 import os
-import json
+import joblib
 from collections import Counter
 
-FEATURE_NAMES_PATH = os.path.join(os.path.dirname(__file__), '../reports/selected_features.json')
+FEATURE_NAMES_PATH = os.path.join(os.path.dirname(__file__), '../ml/feature_names.pkl')
+
+if os.path.exists(FEATURE_NAMES_PATH):
+    SELECTED_FEATURES = joblib.load(FEATURE_NAMES_PATH)
+else:
+    SELECTED_FEATURES = []
+    print("WARNING: feature_names.pkl not found! ML prediction may crash.")
 
 def entropy(s):
     if not s: return -1
@@ -21,14 +27,6 @@ def get_longest_word_len(text):
 def extract_features(url: str):
     if not url.startswith('http'):
         url = 'http://' + url
-        
-    # Load selected features dynamically
-    if os.path.exists(FEATURE_NAMES_PATH):
-        with open(FEATURE_NAMES_PATH, 'r') as f:
-            SELECTED_FEATURES = json.load(f)
-    else:
-        # Fallback if json is missing
-        SELECTED_FEATURES = [] 
         
     features = {name: -1.0 for name in SELECTED_FEATURES} # Sentinel value -1
     
