@@ -70,7 +70,7 @@ function App() {
     setIsScanning(true);
     setScanResult(null);
     try {
-      const res = await fetch('http://127.0.0.1:8000/scan', {
+      const res = await fetch('https://phishguard-4lio.onrender.com/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: scanUrl })
@@ -258,10 +258,10 @@ function App() {
         {/* Scan Result Dropdown */}
         {scanResult && (
           <div className={`mt-4 p-5 rounded-2xl border backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-300 ${scanResult.error ? 'bg-red-50/50 border-red-200' :
-              scanResult.severity === 'Critical' ? 'bg-[#FEF2F2]/80 border-[#FECACA]' :
-                scanResult.severity === 'High' ? 'bg-[#FFFBEB]/80 border-[#FDE68A]' :
-                  scanResult.severity === 'Medium' ? 'bg-[#F5F3FF]/80 border-[#DDD6FE]' :
-                    'bg-[#F0FDF4]/80 border-[#BBF7D0]'
+            scanResult.severity === 'Critical' ? 'bg-[#FEF2F2]/80 border-[#FECACA]' :
+              scanResult.severity === 'High' ? 'bg-[#FFFBEB]/80 border-[#FDE68A]' :
+                scanResult.severity === 'Medium' ? 'bg-[#F5F3FF]/80 border-[#DDD6FE]' :
+                  'bg-[#F0FDF4]/80 border-[#BBF7D0]'
             }`}>
             {scanResult.error ? (
               <p className="text-[#EF4444] font-medium flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> {scanResult.error}</p>
@@ -269,9 +269,9 @@ function App() {
               <div className="flex flex-col md:flex-row gap-6 md:items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${scanResult.severity === 'Critical' ? 'bg-[#F87171] shadow-[0_0_15px_rgba(248,113,113,0.4)]' :
-                      scanResult.severity === 'High' ? 'bg-[#FBBF24] shadow-[0_0_15px_rgba(251,191,36,0.4)]' :
-                        scanResult.severity === 'Medium' ? 'bg-[#A78BFA] shadow-[0_0_15px_rgba(167,139,250,0.4)]' :
-                          'bg-[#22C55E] shadow-[0_0_15px_rgba(34,197,94,0.4)]'
+                    scanResult.severity === 'High' ? 'bg-[#FBBF24] shadow-[0_0_15px_rgba(251,191,36,0.4)]' :
+                      scanResult.severity === 'Medium' ? 'bg-[#A78BFA] shadow-[0_0_15px_rgba(167,139,250,0.4)]' :
+                        'bg-[#22C55E] shadow-[0_0_15px_rgba(34,197,94,0.4)]'
                     }`}>
                     {scanResult.severity === 'Critical' || scanResult.severity === 'High' ? (
                       <AlertTriangle className="w-8 h-8 text-white" />
@@ -286,9 +286,9 @@ function App() {
                       {scanResult.risk_score}% Risk Score
                     </h3>
                     <p className={`text-sm font-semibold uppercase tracking-wider ${scanResult.severity === 'Critical' ? 'text-[#EF4444]' :
-                        scanResult.severity === 'High' ? 'text-[#D97706]' :
-                          scanResult.severity === 'Medium' ? 'text-[#7C3AED]' :
-                            'text-[#16A34A]'
+                      scanResult.severity === 'High' ? 'text-[#D97706]' :
+                        scanResult.severity === 'Medium' ? 'text-[#7C3AED]' :
+                          'text-[#16A34A]'
                       }`}>
                       {scanResult.severity} THREAT
                     </p>
@@ -443,9 +443,9 @@ function App() {
                     <div key={idx} className="flex items-center justify-between bg-white border border-black/5 p-4 rounded-xl shadow-sm hover:shadow-md transition-all">
                       <div className="flex items-center gap-4 truncate">
                         <div className={`shrink-0 w-2 h-2 rounded-full ${scan.severity === 'Critical' ? 'bg-[#F87171] shadow-[0_0_8px_#F87171]' :
-                            scan.severity === 'High' ? 'bg-[#FBBF24] shadow-[0_0_8px_#FBBF24]' :
-                              scan.severity === 'Medium' ? 'bg-[#A78BFA] shadow-[0_0_8px_#A78BFA]' :
-                                'bg-[#22C55E]'
+                          scan.severity === 'High' ? 'bg-[#FBBF24] shadow-[0_0_8px_#FBBF24]' :
+                            scan.severity === 'Medium' ? 'bg-[#A78BFA] shadow-[0_0_8px_#A78BFA]' :
+                              'bg-[#22C55E]'
                           }`}></div>
                         <div className="truncate">
                           <p className="text-[#0F172A] font-medium truncate mb-1">{scan.url}</p>
