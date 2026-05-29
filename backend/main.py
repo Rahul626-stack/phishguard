@@ -209,18 +209,6 @@ def scan_url(req: URLScanRequest):
             reasons=urlhaus_reasons
         )
         
-    # 0.6 Threat Intelligence (Active Lookup: VirusTotal)
-    is_vt_malicious = check_virustotal(url)
-    if is_vt_malicious:
-        vt_reasons = ["Flagged as Malicious by VirusTotal Threat Intelligence"]
-        update_dashboard_stats(url, "Critical", 100, vt_reasons)
-        return URLScanResponse(
-            url=url,
-            risk_score=100,
-            severity="Critical",
-            reasons=vt_reasons
-        )
-        
     # Active Infrastructure Checks (DNS, WHOIS & Typosquatting)
     active_reasons = []
     heuristic_penalty = 0
@@ -274,6 +262,19 @@ def scan_url(req: URLScanRequest):
             pass # WHOIS failures shouldn't crash the scan
     except:
         pass
+
+    # 0.6 Threat Intelligence (Active Lookup: VirusTotal)
+    # Placed after DNS/WHOIS checks to preserve API rate limits
+    is_vt_malicious = check_virustotal(url)
+    if is_vt_malicious:
+        vt_reasons = ["Flagged as Malicious by VirusTotal Threat Intelligence"]
+        update_dashboard_stats(url, "Critical", 100, vt_reasons)
+        return URLScanResponse(
+            url=url,
+            risk_score=100,
+            severity="Critical",
+            reasons=vt_reasons
+        )
 
     # ML Prediction
     ml_score = 0
