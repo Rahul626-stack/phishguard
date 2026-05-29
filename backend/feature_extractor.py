@@ -119,4 +119,4 @@ def extract_features(url: str):
         # Reorder columns to match the training data exactly
         df = df[SELECTED_FEATURES]
         
-    return df
+    return df, domain.replace('www.', '')

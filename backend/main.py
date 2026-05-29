@@ -128,16 +128,16 @@ except Exception as e:
     print(f"Failed to load model: {e}")
 
 # Tranco Top 1M Initialization
+tranco_list = None
+fallback_trusted_domains = set(['google.com', 'youtube.com', 'facebook.com', 'github.com', 'microsoft.com', 'apple.com', 'linkedin.com'])
+
 try:
     print("Initializing Tranco list (This may take a moment on first run)...")
     t = Tranco(cache=True, cache_dir=os.path.join(os.path.dirname(__file__), '.tranco'))
-    latest_list = t.list()
-    # Cache the top 10k domains as a set for O(1) ultra-fast lookup
-    trusted_domains = set(latest_list.top(10000))
-    print(f"Loaded {len(trusted_domains)} trusted domains from Tranco.")
+    tranco_list = t.list()
+    print("Loaded Tranco Top 1M list.")
 except Exception as e:
     print(f"Failed to load Tranco list: {e}")
-    trusted_domains = set(['google.com', 'youtube.com', 'facebook.com', 'github.com', 'microsoft.com', 'apple.com', 'linkedin.com'])
 
 class URLScanRequest(BaseModel):
     url: str
@@ -157,17 +157,32 @@ def scan_url(req: URLScanRequest):
     url = req.url
     reasons = []
     
-    # 0. Quick Whitelist for Tranco top trusted domains
+    # 1. Feature Extraction & Domain Extraction
     try:
-        parsed_url = urllib.parse.urlparse(url if url.startswith('http') else 'http://' + url)
-        domain = parsed_url.netloc.replace('www.', '')
-        path = parsed_url.path
-        query = parsed_url.query
-        
-        # Strict Whitelisting: Must be a trusted domain with NO query strings and root path
-        if domain in trusted_domains:
-            if query == '' and (path == '' or path == '/'):
-                whitelist_reasons = ["Verified Trusted Domain (Strict Whitelist)"]
+        df_features, domain = extract_features(url)
+        extraction_success = True
+    except Exception as e:
+        df_features = None
+        domain = ""
+        extraction_success = False
+        reasons.append("ML extraction failed, falling back to heuristics")
+    
+    # 2. Strict Whitelist against Tranco Top 1 Million
+    if domain:
+        try:
+            parsed_url = urllib.parse.urlparse(url if url.startswith('http') else 'http://' + url)
+            path = parsed_url.path
+            query = parsed_url.query
+            
+            is_whitelisted = False
+            if tranco_list and tranco_list.rank(domain) != -1:
+                is_whitelisted = True
+            elif not tranco_list and domain in fallback_trusted_domains:
+                is_whitelisted = True
+                
+            # Strict Whitelisting: Must be a trusted domain with NO query strings and root path
+            if is_whitelisted and query == '' and (path == '' or path == '/'):
+                whitelist_reasons = ["Verified Trusted Domain (Tranco Top 1M Strict Whitelist)"]
                 update_dashboard_stats(url, "Low", 0, whitelist_reasons)
                 return URLScanResponse(
                     url=url,
@@ -175,8 +190,8 @@ def scan_url(req: URLScanRequest):
                     severity="Low",
                     reasons=whitelist_reasons
                 )
-    except:
-        pass
+        except Exception:
+            pass
         
     # 0.5 Threat Intelligence (Active Lookup: URLhaus)
     is_blacklisted = check_urlhaus(url)
@@ -256,20 +271,20 @@ def scan_url(req: URLScanRequest):
     except:
         pass
 
-    # 1. Feature Extraction & ML Prediction
+    # ML Prediction
     ml_score = 0
     ml_success = False
     
-    if model:
+    if model and extraction_success:
         try:
-            df_features = extract_features(url)
             proba = model.predict_proba(df_features)[0]
             ml_score = int(proba[1] * 100)
             ml_success = True
         except Exception as e:
-            reasons.append(f"ML extraction/prediction failed, falling back to heuristics")
+            reasons.append("ML prediction failed, falling back to heuristics")
     else:
-        reasons.append("ML model unavailable, relying on heuristics.")
+        if not model:
+            reasons.append("ML model unavailable, relying on heuristics.")
         
     # If ML failed or unavailable, calculate heuristic fallback score
     if not ml_success:
