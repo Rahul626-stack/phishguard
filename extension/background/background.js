@@ -3,7 +3,10 @@ chrome.webNavigation.onCompleted.addListener((details) => {
         const url = details.url;
         if (!url.startsWith('http')) return;
 
+        // use this for deployment
         fetch("https://phishguard-4lio.onrender.com/scan", {
+        // use below url for local testing
+        // fetch("http://localhost:8000/scan", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: url })
