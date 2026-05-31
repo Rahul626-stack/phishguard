@@ -42,7 +42,10 @@ function App() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        // use this for deployment
         const res = await fetch('https://phishguard-4lio.onrender.com/stats');
+        // use below url for local testing
+        // const res = await fetch('http://localhost:8000/stats');
         const json = await res.json();
         if (json.stats) setStats(json.stats);
         if (json.tldData) setTldData(json.tldData.length > 0 ? json.tldData : initialTldData);
@@ -70,7 +73,10 @@ function App() {
     setIsScanning(true);
     setScanResult(null);
     try {
+      // use this for deployment
       const res = await fetch('https://phishguard-4lio.onrender.com/scan', {
+      // use this url for local testing
+      // const res = await fetch('http://localhost:8000/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: scanUrl })
