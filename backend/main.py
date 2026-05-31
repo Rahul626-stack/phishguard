@@ -137,6 +137,7 @@ except Exception as e:
 # Tranco Top 1M Initialization
 tranco_list = None
 fallback_trusted_domains = set(['google.com', 'youtube.com', 'facebook.com', 'github.com', 'microsoft.com', 'apple.com', 'linkedin.com'])
+targeted_brands = ['google', 'youtube', 'facebook', 'github', 'microsoft', 'apple', 'linkedin', 'paypal', 'amazon', 'netflix', 'chase', 'bankofamerica', 'wells', 'instagram', 'twitter']
 
 try:
     print("Initializing Tranco list (This may take a moment on first run)...")
@@ -144,6 +145,20 @@ try:
     t = Tranco(cache=True, cache_dir=cache_dir)
     tranco_list = t.list()
     print("Loaded Tranco Top 1M list.")
+    
+    try:
+        top_1000_domains = tranco_list.top(1000)
+        dynamic_brands = set()
+        for domain in top_1000_domains:
+            parts = domain.split('.')
+            if len(parts) > 1:
+                brand = parts[0].lower()
+                if len(brand) >= 4:
+                    dynamic_brands.add(brand)
+        targeted_brands = list(dynamic_brands.union(targeted_brands))
+        print(f"Dynamically built target list with {len(targeted_brands)} brands from Tranco Top 1000.")
+    except Exception as ex:
+        print(f"Failed to extract brands from Tranco list: {ex}. Using default list.")
 except Exception as e:
     print(f"Failed to load Tranco list: {e}")
 
@@ -163,6 +178,7 @@ def read_root():
 @app.post("/scan", response_model=URLScanResponse)
 def scan_url(req: URLScanRequest):
     url = req.url
+    print(f"\n🚀 [SCAN REQUEST] URL: {url}")
     reasons = []
     
     # 1. Feature Extraction & Domain Extraction
@@ -188,6 +204,7 @@ def scan_url(req: URLScanRequest):
             if is_whitelisted:
                 whitelist_reasons = ["Verified Trusted Domain (Tranco Top 1M Whitelist)"]
                 update_dashboard_stats(url, "Low", 0, whitelist_reasons)
+                print(f"✅ [VERDICT] {url} is verified safe (Top 1M Whitelist)")
                 return URLScanResponse(
                     url=url,
                     risk_score=0,
@@ -202,6 +219,7 @@ def scan_url(req: URLScanRequest):
     if is_blacklisted:
         urlhaus_reasons = ["Blacklisted by URLhaus Threat Intelligence"]
         update_dashboard_stats(url, "Critical", 100, urlhaus_reasons)
+        print(f"❌ [VERDICT] {url} blacklisted by URLhaus Threat Intel (100% Critical)")
         return URLScanResponse(
             url=url,
             risk_score=100,
@@ -219,13 +237,13 @@ def scan_url(req: URLScanRequest):
         
         # 1. Brand Spoofing & Typosquatting Detection (Full URL)
         import re
-        targeted_brands = ['google', 'youtube', 'facebook', 'github', 'microsoft', 'apple', 'linkedin', 'paypal', 'amazon', 'netflix', 'chase', 'bankofamerica', 'wells', 'instagram', 'twitter']
         
         raw_url = url.replace('https://', '').replace('http://', '').replace('www.', '')
         url_tokens = re.split(r'[\.\/\-\_\?\=\&]', raw_url)
         
         for token in url_tokens:
             token_lower = token.lower()
+            flagged = False
             for brand in targeted_brands:
                 if len(token_lower) >= 4:
                     similarity = difflib.SequenceMatcher(None, token_lower, brand).ratio()
@@ -236,9 +254,15 @@ def scan_url(req: URLScanRequest):
                         if not is_legit:
                             active_reasons.append(f"Brand Spoofing: Deceptive use of '{brand}' in URL")
                             heuristic_penalty += 50
+                            flagged = True
+                            break
                     elif similarity >= 0.75:
                         active_reasons.append(f"Potential Typosquatting: '{token}' deceptively resembles '{brand}'")
                         heuristic_penalty += 40
+                        flagged = True
+                        break
+            if flagged:
+                break
         
         # 2. DNS Resolution (NXDOMAIN check)
         try:
@@ -269,6 +293,7 @@ def scan_url(req: URLScanRequest):
     if is_vt_malicious:
         vt_reasons = ["Flagged as Malicious by VirusTotal Threat Intelligence"]
         update_dashboard_stats(url, "Critical", 100, vt_reasons)
+        print(f"❌ [VERDICT] {url} blacklisted by VirusTotal Threat Intel (100% Critical)")
         return URLScanResponse(
             url=url,
             risk_score=100,
@@ -335,6 +360,9 @@ def scan_url(req: URLScanRequest):
         reasons.append("No immediate threats detected.")
         
     update_dashboard_stats(url, severity, final_score, reasons)
+    
+    # Custom interactive terminal log
+    print(f"📊 [VERDICT] Score: {final_score}% | Severity: {severity} | Reasons: {reasons}")
         
     return URLScanResponse(
         url=url,
